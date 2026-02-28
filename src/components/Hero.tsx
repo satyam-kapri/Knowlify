@@ -1,3 +1,4 @@
+import React from "react";
 import { Search, ArrowRight, Play, Star, Sparkles } from "lucide-react";
 
 const Hero = () => {
@@ -39,12 +40,14 @@ const Hero = () => {
             style={{ animationDelay: "300ms" }}
           >
             <div className="search-bar">
-              <Search size={20} className="search-icon" />
-              <input
-                type="text"
-                placeholder="What do you want to learn or teach today?"
-                className="search-input"
-              />
+              <div className="search-input-wrapper">
+                <Search size={20} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="What do you want to learn or teach today?"
+                  className="search-input"
+                />
+              </div>
               <button className="btn-pink">Start Exploring</button>
             </div>
             <div className="search-tags">
@@ -127,6 +130,10 @@ const Hero = () => {
           --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        .hero-light-wrapper * {
+          box-sizing: border-box;
+        }
+
         .hero-light-wrapper {
           background-color: var(--bg-color);
           color: var(--text-main);
@@ -136,7 +143,7 @@ const Hero = () => {
           position: relative;
           overflow: hidden;
           padding: 120px 0;
-          font-family: var(--font-sans);
+          font-family: var(--font-sans, system-ui, sans-serif);
           font-size: 0.875rem;
         }
 
@@ -211,7 +218,6 @@ const Hero = () => {
         }
 
         .hero-title {
-          font-family: var(--font-heading);
           font-size: clamp(2rem, 3.5vw, 2.75rem);
           font-weight: 700;
           line-height: 1.15;
@@ -227,7 +233,7 @@ const Hero = () => {
         }
 
         .hero-subtitle {
-          font-size: 0.85rem;
+          font-size: 0.95rem;
           color: var(--text-muted);
           line-height: 1.6;
           margin-bottom: 2.5rem;
@@ -256,9 +262,16 @@ const Hero = () => {
           box-shadow: 0 8px 20px rgba(236, 72, 153, 0.08);
         }
 
+        .search-input-wrapper {
+          display: flex;
+          align-items: center;
+          flex: 1;
+        }
+
         .search-icon {
           color: #94a3b8;
           margin-right: 10px;
+          flex-shrink: 0;
         }
 
         .search-input {
@@ -268,9 +281,11 @@ const Hero = () => {
           font-size: 0.9rem;
           color: var(--text-main);
           background: transparent;
+          width: 100%;
         }
         .search-input::placeholder {
           color: #94a3b8;
+          text-overflow: ellipsis;
         }
 
         .btn-pink {
@@ -298,6 +313,7 @@ const Hero = () => {
           margin-top: 1.5rem;
           font-size: 0.875rem;
           color: var(--text-muted);
+          flex-wrap: wrap;
         }
         .tag {
           background: #f8fafc;
@@ -344,12 +360,12 @@ const Hero = () => {
           background: #ffffff;
           padding: 4px;
           border-radius: 16px;
-          
         }
 
         .grid-item {
           overflow: hidden;
           position: relative;
+          border-radius: 2px;
         }
 
         .grid-item img {
@@ -482,65 +498,107 @@ const Hero = () => {
           100% { transform: translate(20px, -50px) scale(1.1); }
         }
 
-        /* --- Responsive --- */
+        /* --- Responsive Breakpoints --- */
+        
+        /* Tablet / Smaller Desktops */
         @media (max-width: 1024px) {
+          .hero-light-wrapper {
+             padding: 80px 0;
+          }
           .hero-container {
             display: flex;
             flex-direction: column-reverse;
             text-align: center;
-            gap: 40px;
+            gap: 60px;
           }
           .hero-visual {
-            display: flex !important;
             width: 100%;
             min-height: auto;
-            margin-bottom: 2rem;
           }
           .visual-composition {
-            max-width: 320px;
+            max-width: 400px;
             margin: 0 auto;
           }
           .image-grid-4x4 {
-            height: 280px;
+            height: 360px;
           }
           .hero-content {
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
           }
           .badge-pill { 
             margin: 0 auto 2rem; 
-            padding: 4px 12px 4px 4px;
-            max-width: 100%;
           }
-          .badge-text { font-size: 0.75rem; }
           .hero-subtitle { margin: 0 auto 3rem; }
-          .search-container { margin: 0 auto; }
-          .search-tags { justify-content: center; flex-wrap: wrap; }
+          .search-container { margin: 0 auto; width: 100%; }
+          .search-tags { justify-content: center; }
           
-          .review-card { 
-            display: block !important;
-            left: -20px; 
-            bottom: 10px; 
-            transform: scale(0.8);
-          }
-          .stat-card { 
-            display: flex !important;
-            right: -20px; 
-            top: 10px; 
-            transform: scale(0.8);
-          }
+          /* Keep cards visible but pull them in slightly */
+          .review-card { left: -20px; bottom: 10px; }
+          .stat-card { right: -20px; top: 20px; }
         }
 
+        /* Mobile Phones */
         @media (max-width: 640px) {
-          .hero-title { font-size: 1.8rem; }
-          .search-bar { flex-direction: column; background: transparent; border: none; box-shadow: none; padding: 0; gap: 12px; }
-          .search-input { width: 100%; background: #ffffff; border: 2px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; }
-          .btn-pink { width: 100%; }
-          .image-grid-4x4 { height: 240px; }
-          .badge-pill { flex-direction: column; border-radius: 12px; padding: 8px; gap: 4px; }
-          .badge-tag { font-size: 0.6rem; }
-          .review-card, .stat-card { transform: scale(0.7); }
-          .review-card { left: -30px; bottom: -10px; }
-          .stat-card { right: -30px; top: -10px; }
+          .hero-light-wrapper { 
+            padding: 60px 0 40px; 
+          }
+          .hero-title { font-size: 2.25rem; }
+          
+          /* Stack the search bar */
+          .search-bar { 
+            flex-direction: column; 
+            background: transparent; 
+            border: none; 
+            box-shadow: none; 
+            padding: 0; 
+            gap: 12px; 
+          }
+          .search-input-wrapper { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            padding: 12px 16px; 
+            border-radius: 12px; 
+            width: 100%; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+          }
+          .search-icon { margin-right: 12px; }
+          .search-input { width: 100%; padding: 0; text-align: left; }
+          .btn-pink { width: 100%; padding: 14px; font-size: 1rem; }
+          
+          .image-grid-4x4 { height: 280px; }
+          
+          /* Keep pill horizontal but wrap text if needed */
+          .badge-pill { 
+            flex-direction: row; 
+            border-radius: 100px; 
+            padding: 4px 12px 4px 4px; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+          }
+          .badge-tag { font-size: 0.65rem; }
+          .badge-text { font-size: 0.75rem; text-align: center; }
+          
+          /* Scale cards down and change origin to prevent horizontal overflow */
+          .visual-composition { max-width: 300px; }
+          .review-card { 
+            left: -10px; 
+            bottom: -15px; 
+            transform: scale(0.75); 
+            transform-origin: bottom left;
+          }
+          .stat-card { 
+            right: -10px; 
+            top: -15px; 
+            transform: scale(0.75); 
+            transform-origin: top right;
+          }
+          
+          .search-tags { gap: 8px; }
+          .tag { padding: 4px 10px; font-size: 0.75rem; }
         }
       `}</style>
     </div>

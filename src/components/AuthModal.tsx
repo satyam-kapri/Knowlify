@@ -153,14 +153,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
       </div>
 
       <style>{`
+        :root {
+          --text-main: #0f172a;
+          --text-muted: #64748b;
+          --pink-main: #ec4899;
+          --pink-light: #fdf2f8;
+          --pink-gradient: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
+          --bg-slate: #f8fafc;
+          --border-soft: #e2e8f0;
+        }
+
         .modal-overlay {
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(10px);
+          background: rgba(15, 23, 42, 0.4);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -174,37 +184,39 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           background: white;
           padding: 3.5rem;
           position: relative;
-          box-shadow: 0 40px 80px rgba(0, 0, 0, 0.1);
-          border-radius: 24px;
-          border: 1.5px solid var(--border-color);
+          box-shadow: 0 40px 80px rgba(236, 72, 153, 0.1);
+          border-radius: 32px;
+          border: 1px solid var(--border-soft);
         }
 
         .modal-close {
           position: absolute;
           top: 1.5rem;
           right: 1.5rem;
-          color: var(--text-secondary);
+          color: var(--text-muted);
+          transition: color 0.2s;
         }
 
         .modal-close:hover {
-          color: var(--text-primary);
+          color: var(--pink-main);
         }
 
         .modal-header {
           margin-bottom: 2.5rem;
+          text-align: center;
         }
 
         .modal-title {
-          font-size: 2rem;
+          font-size: 2.25rem;
           font-weight: 800;
           margin-bottom: 0.75rem;
-          color: var(--text-primary);
+          color: var(--text-main);
           letter-spacing: -0.04em;
         }
 
         .modal-subtitle {
           font-size: 1rem;
-          color: var(--text-secondary);
+          color: var(--text-muted);
           line-height: 1.5;
           font-weight: 500;
         }
@@ -226,19 +238,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-primary);
+          color: var(--text-main);
         }
 
         .form-input {
           width: 100%;
           padding: 1rem 1.25rem;
           font-size: 1rem;
-          border-radius: 12px;
-          background: #f8f8f6;
+          border-radius: 16px;
+          background: var(--bg-slate);
+          border: 1px solid var(--border-soft);
+          transition: all 0.2s;
         }
         
         .form-input:focus {
+          border-color: #fbcfe8;
           background: white;
+          box-shadow: 0 0 0 4px var(--pink-light);
+          outline: none;
         }
 
         .role-selection {
@@ -249,54 +266,82 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
         .role-btn {
           flex: 1;
           padding: 0.75rem;
-          border-radius: 10px;
-          border: 1.5px solid var(--border-color);
-          background: #f8f8f6;
+          border-radius: 12px;
+          border: 1px solid var(--border-soft);
+          background: var(--bg-slate);
           font-weight: 700;
+          color: var(--text-muted);
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
         .role-btn.active {
-          background: var(--text-primary);
-          color: white;
-          border-color: var(--text-primary);
+          background: var(--pink-light);
+          color: var(--pink-main);
+          border-color: var(--pink-main);
         }
 
         .form-error {
           font-size: 0.85rem;
-          color: #d00;
+          color: var(--pink-main);
           font-weight: 700;
-          background: #fee;
+          background: var(--pink-light);
           padding: 12px 16px;
-          border-radius: 8px;
+          border-radius: 12px;
+          border: 1px solid rgba(236, 72, 153, 0.2);
         }
 
         .auth-submit {
           padding: 16px;
           font-size: 1rem;
-          border-radius: 12px;
+          font-weight: 700;
+          border-radius: 16px;
           margin-top: 0.5rem;
+          background: var(--pink-gradient);
+          color: white;
+          border: none;
+          cursor: pointer;
+          transition: transform 0.2s;
+          box-shadow: 0 10px 20px rgba(236, 72, 153, 0.3);
+        }
+
+        .auth-submit:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 15px 30px rgba(236, 72, 153, 0.4);
+        }
+
+        .auth-submit:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+          transform: none;
         }
 
         .modal-footer {
           margin-top: 2.5rem;
           padding-top: 2.5rem;
-          border-top: 1.5px solid var(--border-color);
+          border-top: 1px solid var(--border-soft);
           text-align: center;
         }
 
         .switch-auth-text {
           font-size: 1rem;
-          color: var(--text-secondary);
+          color: var(--text-muted);
           margin-bottom: 2rem;
           font-weight: 500;
         }
 
         .switch-auth-btn {
-          color: var(--text-primary);
+          color: var(--pink-main);
           font-weight: 800;
           margin-left: 0.25rem;
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        
+        .switch-auth-btn:hover {
           text-decoration: underline;
         }
 
@@ -313,12 +358,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose }) => {
           font-size: 0.75rem;
           font-weight: 800;
           text-transform: uppercase;
-          color: #bbb;
+          color: var(--text-muted);
           letter-spacing: 0.05em;
+          opacity: 0.6;
         }
 
         .trust-badge svg {
-          color: #000;
+          color: var(--pink-main);
         }
       `}</style>
     </div>
