@@ -514,6 +514,7 @@ const Hero = () => {
           .hero-visual {
             width: 100%;
             min-height: auto;
+            margin-top:3rem;
           }
           .visual-composition {
             max-width: 400px;
