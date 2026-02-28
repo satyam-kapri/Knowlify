@@ -5,28 +5,21 @@ import {
   X,
   Loader2,
   FolderUp,
-  Terminal,
+  Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCourseStore } from "../store/useCourseStore";
-import { Button } from "./ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "./ui/card";
-import { Input } from "./ui/input";
+import { getChatGPTResponse, getChatGPTJSON } from "../lib/openai";
+import { extractFolderId, listDriveFiles, getFileBlob } from "../lib/gdrive";
 
 interface Message {
   id: string;
   role: "bot" | "user";
   content: string;
-  type?: "upload" | "metadata" | "success" | "thumbnail";
+  type?: "upload" | "metadata" | "success" | "thumbnail" | "drive";
 }
 
 const Chatbot = () => {
@@ -35,19 +28,18 @@ const Chatbot = () => {
     {
       id: "1",
       role: "bot",
-      content:
-        "WELCOME TO KNOWLIFY.OS. I AM YOUR ARCHITECT. READY TO TRANSMIT KNOWLEDGE TO THE GLOBAL NETWORK?",
+      content: "🤖 Hi! Let's publish your course.",
     },
     {
       id: "2",
       role: "bot",
       content:
-        "TO BEGIN, PLEASE UPLOAD YOUR COURSE ARCHIVE (ZIP) OR DIRECTORY CONTAINING THE LEARNING MODULES.",
+        "Please upload your course folder or share a Google Drive link (make sure it's public).",
       type: "upload",
     },
   ]);
   const [input, setInput] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [courseData, setCourseData] = useState<any>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [step, setStep] = useState<"upload" | "thumbnail" | "metadata">(
@@ -56,8 +48,10 @@ const Chatbot = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { addCourse } = useCourseStore();
+
+  const isInstructor = profile?.role === "instructor";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -70,29 +64,147 @@ const Chatbot = () => {
   const handleSend = async () => {
     if (!input.trim()) return;
 
+    const userMessage = input.trim();
     const newMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: userMessage,
     };
     setMessages((prev) => [...prev, newMessage]);
     setInput("");
 
     if (step === "metadata") {
-      processMetadata(input);
+      processMetadata(userMessage);
     } else {
-      setTimeout(() => {
+      setProcessing(true);
+      try {
+        const folderId = extractFolderId(userMessage);
+        if (folderId) {
+          await handleDriveLink(folderId);
+        } else {
+          const text = await getChatGPTResponse(userMessage);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              role: "bot",
+              content: text,
+            },
+          ]);
+        }
+      } catch (error: any) {
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: "bot",
-            content:
-              "COMMAND NOT RECOGNIZED. I REQUIRE DATA INPUT TO PROCEED WITH THE ARCHITECTURAL PHASE.",
+            content: `Error: ${error.message || "Something went wrong."}`,
           },
         ]);
-      }, 600);
+      } finally {
+        setProcessing(false);
+      }
     }
+  };
+
+  const handleDriveLink = async (folderId: string) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "bot",
+        content: "Reading Google Drive folder...",
+      },
+    ]);
+
+    const driveFiles = await listDriveFiles(folderId);
+    if (driveFiles.length === 0) {
+      throw new Error("No files found in the Drive folder.");
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "bot",
+        content: `Found ${driveFiles.length} files. Analyzing course structure...`,
+      },
+    ]);
+
+    // Use Gemini to understand the course structure
+    const fileList = driveFiles
+      .map((f: any) => `${f.name} (ID: ${f.id})`)
+      .join("\n");
+    const analysisPrompt = `
+      I have a list of files from a Google Drive folder. I want to create a course from them.
+      Please identify:
+      1. A suitable course name.
+      2. The order of lessons.
+      3. The type of each lesson (video or pdf).
+
+      Files:
+      ${fileList}
+
+      Return ONLY a JSON object in this format:
+      {
+        "courseName": "extracted name",
+        "lessons": [
+          { "name": "lesson name", "id": "drive_file_id", "order": 1, "type": "video|pdf" }
+        ]
+      }
+    `;
+
+    const courseStructure = await getChatGPTJSON(analysisPrompt);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "bot",
+        content: `I've analyzed the files. The course name will be "${courseStructure.courseName}". I'll now download and process the ${courseStructure.lessons.length} lessons.`,
+      },
+    ]);
+
+    const processedFiles: any[] = [];
+    for (const lesson of courseStructure.lessons) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "bot",
+          content: `Downloading ${lesson.name}...`,
+        },
+      ]);
+      const blob = await getFileBlob(lesson.id);
+      processedFiles.push({
+        name: lesson.name,
+        blob: blob,
+        type: lesson.type,
+      });
+    }
+
+    setCourseData({
+      title: courseStructure.courseName,
+      files: processedFiles,
+      instructor_id: user?.id,
+    });
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: "bot",
+        content: "Lessons downloaded successfully!",
+      },
+      {
+        id: (Date.now() + 1).toString(),
+        role: "bot",
+        content:
+          "Please upload a high-quality thumbnail image for this course.",
+        type: "thumbnail",
+      },
+    ]);
+    setStep("thumbnail");
   };
 
   const handleFileUpload = async (
@@ -107,13 +219,25 @@ const Chatbot = () => {
         {
           id: Date.now().toString(),
           role: "bot",
-          content: "ERROR: IDENTITY NOT VERIFIED. AUTHENTICATION REQUIRED.",
+          content: "Please sign in to your account to upload courses.",
         },
       ]);
       return;
     }
 
-    setUploading(true);
+    if (!isInstructor) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "bot",
+          content: "Only instructors are allowed to upload courses.",
+        },
+      ]);
+      return;
+    }
+
+    setProcessing(true);
 
     try {
       const file = files[0];
@@ -126,8 +250,8 @@ const Chatbot = () => {
           id: Date.now().toString(),
           role: "user",
           content: isZip
-            ? `TRANSMITTING ARCHIVE: ${file.name}`
-            : `UPLOADING ${files.length} DATA BLOCKS...`,
+            ? `Uploading archive: ${file.name}`
+            : `Uploading ${files.length} files...`,
         },
       ]);
 
@@ -154,7 +278,7 @@ const Chatbot = () => {
 
         processedFiles = await Promise.all(extractPromises);
       } else {
-        courseName = files[0].webkitRelativePath.split("/")[0] || "NEW_MODULE";
+        courseName = files[0].webkitRelativePath.split("/")[0] || "New Module";
         processedFiles = Array.from(files).map((f) => {
           const ext = f.name.split(".").pop()?.toLowerCase();
           let type = "other";
@@ -169,32 +293,32 @@ const Chatbot = () => {
         instructor_id: user.id,
       });
 
-      setUploading(false);
+      setProcessing(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "bot",
-          content: `DATA SYNC COMPLETE: "${courseName}". ${processedFiles.length} ASSETS IDENTIFIED.`,
+          content: `Success! Identified ${processedFiles.length} assets in "${courseName}".`,
         },
         {
           id: (Date.now() + 1).toString(),
           role: "bot",
           content:
-            "NOW, PLEASE PROVIDE A VISUAL IDENTITY (THUMBNAIL) FOR THIS COURSE.",
+            "Please upload a high-quality thumbnail image to represent this course.",
           type: "thumbnail",
         },
       ]);
       setStep("thumbnail");
     } catch (error) {
       console.error(error);
-      setUploading(false);
+      setProcessing(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "bot",
-          content: "SYNC_ERROR: LINK INTERRUPTED.",
+          content: "Upload failed. Please try again or check your file format.",
         },
       ]);
     }
@@ -212,17 +336,19 @@ const Chatbot = () => {
       {
         id: Date.now().toString(),
         role: "user",
-        content: `THUMBNAIL ATTACHED: ${file.name}`,
+        content: `Thumbnail selected: ${file.name}`,
       },
       {
         id: (Date.now() + 1).toString(),
         role: "bot",
-        content: "VISUAL IDENTITY SECURED. FINAL STEP: DEFINE COURSE SCHEMA.",
+        content: "Great. Final step: please provide the course details.",
       },
       {
         id: (Date.now() + 2).toString(),
         role: "bot",
-        content: "PLEASE ENTER: [TITLE], [DESCRIPTION], [PRICE]",
+        content: courseData?.title
+          ? `I've got the title: "${courseData.title}". Please provide the [Description] and [Price] (comma separated).`
+          : "Format: [Title], [Description], [Price]",
         type: "metadata",
       },
     ]);
@@ -231,9 +357,19 @@ const Chatbot = () => {
 
   const processMetadata = async (metadataStr: string) => {
     const parts = metadataStr.split(",");
-    const title = parts[0]?.trim();
-    const description = parts[1]?.trim();
-    const price = parts[2]?.trim();
+    let title = "";
+    let description = "";
+    let price = "";
+
+    if (courseData?.title) {
+      title = courseData.title;
+      description = parts[0]?.trim();
+      price = parts[1]?.trim();
+    } else {
+      title = parts[0]?.trim();
+      description = parts[1]?.trim();
+      price = parts[2]?.trim();
+    }
 
     if (!title || !description || !price) {
       setMessages((prev) => [
@@ -242,21 +378,19 @@ const Chatbot = () => {
           id: Date.now().toString(),
           role: "bot",
           content:
-            "SCHEMA ERROR: ATTRIBUTES INCOMPLETE. FORMAT REQUIRED: [TITLE], [DESCRIPTION], [PRICE]",
+            "I need all three details. Please enter: [Title], [Description], [Price]",
           type: "metadata",
         },
       ]);
       return;
     }
 
-    setUploading(true);
+    setProcessing(true);
 
     try {
-      console.log("Starting metadata process for:", title);
       let thumbnailUrl =
         "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80";
 
-      // 1. Create Course Skeleton to get ID
       const { data: courseDataRes, error: courseError } = await supabase
         .from("courses")
         .insert([
@@ -265,7 +399,7 @@ const Chatbot = () => {
             description,
             price: parseFloat(price),
             instructor_id: user?.id,
-            thumbnail_url: thumbnailUrl, // temp
+            thumbnail_url: thumbnailUrl,
           },
         ])
         .select();
@@ -273,28 +407,19 @@ const Chatbot = () => {
       if (courseError || !courseDataRes) throw courseError;
       const newCourse = courseDataRes[0];
 
-      // 2. Upload Thumbnail if exists
       if (thumbnailFile) {
         const thumbExt = thumbnailFile.name.split(".").pop();
         const thumbPath = `${newCourse.id}/thumbnail.${thumbExt}`;
-        console.log("Uploading thumbnail to:", thumbPath);
-        const { error: thumbUploadError, data: thumbData } =
-          await supabase.storage
-            .from("course-assets")
-            .upload(thumbPath, thumbnailFile);
-
-        if (thumbUploadError) {
-          console.error("Thumbnail upload error:", thumbUploadError);
-        }
+        const { error: thumbUploadError } = await supabase.storage
+          .from("course-assets")
+          .upload(thumbPath, thumbnailFile);
 
         if (!thumbUploadError) {
-          console.log("Thumbnail uploaded successfully:", thumbData);
           const {
             data: { publicUrl },
           } = supabase.storage.from("course-assets").getPublicUrl(thumbPath);
           thumbnailUrl = publicUrl;
 
-          // Update course with actual thumbnail URL
           await supabase
             .from("courses")
             .update({ thumbnail_url: thumbnailUrl })
@@ -304,71 +429,50 @@ const Chatbot = () => {
         }
       }
 
-      // 3. Upload Files to Storage and create DB entries
       if (courseData && courseData.files) {
-        console.log(`Uploading ${courseData.files.length} files...`);
-
-        // Use a loop instead of Promise.all for better reliability and debugging
         for (let index = 0; index < courseData.files.length; index++) {
           const file = courseData.files[index];
-          const filePath = `${newCourse.id}/${file.name}`;
+          const ext = file.name.split(".").pop();
+          const sequentialName = `${index + 1}.${ext}`;
+          const filePath = `${newCourse.id}/${sequentialName}`;
 
-          console.log(
-            `[${index + 1}/${courseData.files.length}] Processing: ${file.name}`,
-          );
-
-          // Upload to Supabase Storage
           const { error: uploadError } = await supabase.storage
             .from("course-assets")
             .upload(filePath, file.blob, {
               upsert: true,
+              contentType:
+                file.type === "pdf" || file.name.toLowerCase().endsWith(".pdf")
+                  ? "application/pdf"
+                  : undefined,
+              cacheControl: "3600",
             });
 
-          if (uploadError) {
-            console.error(`Upload failed for ${file.name}:`, uploadError);
-            continue; // Move to next file
-          }
+          if (uploadError) continue;
 
-          // Get Public URL
           const { data: urlData } = supabase.storage
             .from("course-assets")
             .getPublicUrl(filePath);
 
           const publicUrl = urlData.publicUrl;
 
-          // Create Course Content entry
-          const { error: contentError } = await supabase
-            .from("course_contents")
-            .insert({
-              course_id: newCourse.id,
-              title: file.name.split(".")[0],
-              type: file.type === "other" ? "pdf" : file.type,
-              url: publicUrl,
-              order: index,
-            });
-
-          if (contentError) {
-            console.error(
-              `Database entry failed for ${file.name}:`,
-              contentError,
-            );
-            throw new Error(
-              `Failed to index file: ${file.name}. ${contentError.message}`,
-            );
-          }
-
-          console.log(`Indexed successfully: ${file.name}`);
+          await supabase.from("course_contents").insert({
+            course_id: newCourse.id,
+            title: sequentialName,
+            type: file.type === "other" ? "pdf" : file.type,
+            url: publicUrl,
+            order: index,
+          });
         }
       }
 
       addCourse(newCourse);
-      setUploading(false);
+      setProcessing(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "bot",
-          content: `CONGRATULATIONS. "${title}" HAS BEEN MANIFESTED ON THE GLOBAL NETWORK. KNOWLEDGE DISTRIBUTION COMMENCING.`,
+          content: `Congratulations! "${title}" is now published and available to all learners.`,
           type: "success",
         },
       ]);
@@ -377,152 +481,113 @@ const Chatbot = () => {
       setCourseData(null);
     } catch (error: any) {
       console.error(error);
-      setUploading(false);
+      setProcessing(false);
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "bot",
-          content: `SYNC_ERROR: ${error.message || "DB WRITE FAILED."}`,
+          content: `An error occurred: ${error.message || "Failed to save data."}`,
         },
       ]);
     }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.9 }}
-            className="mb-4 mr-2"
-          >
-            <div className="relative">
-              <div className="bg-primary text-primary-foreground text-[10px] font-bold px-4 py-2 rounded-lg shadow-xl uppercase tracking-widest animate-bounce">
-                Upload Course Here
-                <div className="absolute -bottom-1 right-6 w-3 h-3 bg-primary rotate-45"></div>
+    <div className="chatbot-wrapper">
+      {!isOpen && (
+        <div className="chatbot-hint animate-fade-in-up">
+          <div className="hint-pill">
+            <Sparkles size={14} />
+            Publish Course
+            <div className="hint-arrow"></div>
+          </div>
+        </div>
+      )}
+
+      {isOpen && (
+        <div className="chatbot-window animate-scale-in">
+          <header className="chatbot-header">
+            <div className="header-title">
+              <div className="header-icon-wrapper">
+                <MessageSquare size={16} color="white" />
+              </div>
+              <div className="header-text">
+                <span className="title-main">Knowlify Studio</span>
+                <span className="title-sub">AI Publishing Assistant</span>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <button className="close-btn" onClick={() => setIsOpen(false)}>
+              <X size={20} />
+            </button>
+          </header>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 40, originX: 1, originY: 1 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 40 }}
-            className="mb-4"
-          >
-            <Card className="w-[380px] h-[550px] flex flex-col shadow-2xl border-primary/20 bg-background/95 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between py-4 px-6 border-b">
-                <div className="flex items-center space-x-2">
-                  <Terminal size={18} className="text-primary" />
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest">
-                    Knowlify.OS
-                  </CardTitle>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X size={18} />
-                </Button>
-              </CardHeader>
+          <div className="chatbot-messages">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={`message-row ${m.role === "user" ? "user-row" : "bot-row"}`}
+              >
+                <div className="message-bubble">
+                  <p>{m.content}</p>
 
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-2 text-xs font-medium ${
-                        m.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      }`}
+                  {m.type === "upload" && !processing && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="chatbot-action-btn bot-action"
                     >
-                      <p className="leading-relaxed">
-                        {/* {m.role === "bot" ? "> " : ""} */}
-                        {m.content}
-                      </p>
+                      <FolderUp size={16} />
+                      Choose ZIP/Folder
+                    </button>
+                  )}
 
-                      {m.type === "upload" && !uploading && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="mt-3 w-full h-8 text-[10px] font-bold uppercase tracking-wider"
-                        >
-                          <FolderUp size={14} className="mr-2" />
-                          Initialize Upload
-                        </Button>
-                      )}
-
-                      {m.type === "thumbnail" && !uploading && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => thumbInputRef.current?.click()}
-                          className="mt-3 w-full h-8 text-[10px] font-bold uppercase tracking-wider"
-                        >
-                          <FolderUp size={14} className="mr-2" />
-                          Upload Thumbnail
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {uploading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-center space-x-2 text-primary bg-primary/5 px-4 py-2 rounded-2xl">
-                      <Loader2 className="animate-spin" size={14} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">
-                        Processing...
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </CardContent>
-
-              <CardFooter className="p-4 border-t">
-                <div className="flex w-full items-center space-x-2">
-                  <Input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSend()}
-                    placeholder="Enter command..."
-                    className="flex-1 h-9 text-xs"
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleSend}
-                    className="h-9 w-9 rounded-md"
-                  >
-                    <Send size={16} />
-                  </Button>
+                  {m.type === "thumbnail" && !processing && (
+                    <button
+                      onClick={() => thumbInputRef.current?.click()}
+                      className="chatbot-action-btn bot-action"
+                    >
+                      <ImageIcon size={16} />
+                      Choose Image
+                    </button>
+                  )}
                 </div>
-              </CardFooter>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            ))}
+            {processing && (
+              <div className="message-row bot-row">
+                <div className="message-bubble loading-bubble">
+                  <Loader2 className="animate-spin text-pink-main" size={16} />
+                  <span>Processing...</span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-      <Button
-        size="icon"
-        onClick={() => setIsOpen(!isOpen)}
-        className="h-14 w-14 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95 z-10"
-      >
-        <MessageSquare size={28} />
-      </Button>
+          <footer className="chatbot-footer">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Type your response..."
+              className="chatbot-input"
+              disabled={processing}
+            />
+            <button
+              className="chatbot-send-btn"
+              onClick={handleSend}
+              disabled={!input.trim() || processing}
+            >
+              <Send size={18} />
+            </button>
+          </footer>
+        </div>
+      )}
+
+      <button onClick={() => setIsOpen(!isOpen)} className="chatbot-toggle-btn">
+        {isOpen ? <X size={26} /> : <MessageSquare size={26} />}
+      </button>
 
       <input
         type="file"
@@ -539,6 +604,328 @@ const Chatbot = () => {
         accept="image/*"
         className="hidden"
       />
+
+      <style>{`
+        :root {
+          --text-main: #0f172a;
+          --text-muted: #64748b;
+          --pink-main: #ec4899;
+          --pink-light: #fdf2f8;
+          --pink-gradient: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
+          --bg-slate: #f8fafc;
+          --border-soft: #e2e8f0;
+          --shadow-lg: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+          --shadow-pink: 0 15px 30px -10px rgba(236, 72, 153, 0.4);
+        }
+
+        .chatbot-wrapper {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          font-family: var(--font-sans);
+        }
+
+        /* --- Hint Pill --- */
+        .chatbot-hint {
+          margin-bottom: 1.25rem;
+        }
+
+        .hint-pill {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--pink-gradient);
+          color: white;
+          padding: 10px 18px;
+          border-radius: 100px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          position: relative;
+          box-shadow: var(--shadow-pink);
+          animation: float 3s ease-in-out infinite;
+        }
+
+        .hint-arrow {
+          position: absolute;
+          bottom: -4px;
+          right: 28px;
+          width: 10px;
+          height: 10px;
+          background: var(--pink-main);
+          transform: rotate(45deg);
+        }
+
+        /* --- Chat Window --- */
+        .chatbot-window {
+          width: 380px;
+          height: 500px;
+          max-height: calc(100vh - 120px);
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 1rem;
+          background: #ffffff;
+          overflow: hidden;
+          box-shadow: var(--shadow-lg);
+          border: 1px solid var(--border-soft);
+          border-radius: 20px;
+        }
+
+        /* --- Header --- */
+        .chatbot-header {
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--border-soft);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #ffffff;
+        }
+
+        .header-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-icon-wrapper {
+          width: 36px;
+          height: 36px;
+          background: var(--pink-gradient);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(236, 72, 153, 0.2);
+        }
+
+        .header-text {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .title-main {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text-main);
+          line-height: 1.2;
+        }
+
+        .title-sub {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: var(--pink-main);
+        }
+
+        .close-btn {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          transition: color 0.2s ease;
+          padding: 4px;
+        }
+        .close-btn:hover {
+          color: var(--text-main);
+        }
+
+        /* --- Messages Area --- */
+        .chatbot-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          background: #ffffff;
+        }
+
+        .message-row {
+          display: flex;
+          width: 100%;
+        }
+
+        .user-row { justify-content: flex-end; }
+        .bot-row { justify-content: flex-start; }
+
+        .message-bubble {
+          max-width: 85%;
+          padding: 1rem 1.25rem;
+          border-radius: 18px;
+          font-size: 0.9rem;
+          line-height: 1.5;
+          font-weight: 500;
+        }
+
+        .user-row .message-bubble {
+          background: var(--pink-gradient);
+          color: white;
+          border-bottom-right-radius: 4px;
+          box-shadow: 0 4px 12px rgba(236, 72, 153, 0.2);
+        }
+
+        .bot-row .message-bubble {
+          background: var(--bg-slate);
+          color: var(--text-main);
+          border: 1px solid var(--border-soft);
+          border-bottom-left-radius: 4px;
+        }
+
+        /* --- Action Buttons Inside Chat --- */
+        .chatbot-action-btn {
+          margin-top: 1rem;
+          width: 100%;
+          font-size: 0.85rem;
+          font-weight: 600;
+          padding: 10px 16px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .bot-action {
+          background: #ffffff;
+          border: 1px solid var(--pink-main);
+          color: var(--pink-main);
+        }
+
+        .bot-action:hover {
+          background: var(--pink-light);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(236, 72, 153, 0.1);
+        }
+
+        .loading-bubble {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          color: var(--text-main);
+          font-weight: 700;
+          font-size: 0.85rem;
+        }
+        
+        .text-pink-main { color: var(--pink-main); }
+
+        /* --- Input Footer --- */
+        .chatbot-footer {
+          padding: 1rem 1.5rem;
+          border-top: 1px solid var(--border-soft);
+          display: flex;
+          gap: 0.75rem;
+          background: #ffffff;
+          align-items: center;
+        }
+
+        .chatbot-input {
+          flex: 1;
+          padding: 12px 18px;
+          font-size: 0.9rem;
+          border-radius: 100px;
+          background: var(--bg-slate);
+          border: 1px solid var(--border-soft);
+          color: var(--text-main);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+        
+        .chatbot-input:focus {
+          border-color: #fbcfe8;
+          background: #ffffff;
+          box-shadow: 0 0 0 3px var(--pink-light);
+        }
+
+        .chatbot-send-btn {
+          width: 44px;
+          height: 44px;
+          background: var(--pink-gradient);
+          color: white;
+          border-radius: 50%;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 10px rgba(236, 72, 153, 0.2);
+        }
+        
+        .chatbot-send-btn:hover:not(:disabled) {
+          transform: scale(1.05);
+          box-shadow: 0 6px 14px rgba(236, 72, 153, 0.3);
+        }
+
+        .chatbot-send-btn:disabled {
+          background: #cbd5e1;
+          box-shadow: none;
+          cursor: not-allowed;
+        }
+
+        /* --- Toggle Main Button --- */
+        .chatbot-toggle-btn {
+          width: 60px;
+          height: 60px;
+          background: var(--pink-gradient);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: var(--shadow-pink);
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          z-index: 1001;
+        }
+
+        .chatbot-toggle-btn:hover {
+          transform: translateY(-4px) scale(1.05);
+          box-shadow: 0 20px 35px -10px rgba(236, 72, 153, 0.6);
+        }
+
+        .hidden { display: none; }
+
+        /* --- Animations --- */
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.4s ease forwards;
+        }
+
+        @keyframes scale-in {
+          from { opacity: 0; transform: scale(0.95) translateY(20px); transform-origin: bottom right; }
+          to { opacity: 1; transform: scale(1) translateY(0); transform-origin: bottom right; }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @media (max-width: 480px) {
+          .chatbot-window {
+            width: calc(100vw - 2rem);
+            height: 500px;
+            bottom: 5rem;
+            right: 1rem;
+          }
+          .chatbot-wrapper {
+            bottom: 1rem;
+            right: 1rem;
+          }
+        }
+      `}</style>
     </div>
   );
 };

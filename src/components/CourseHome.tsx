@@ -5,10 +5,10 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { useCourseStore } from "../store/useCourseStore";
 import { supabase } from "../lib/supabase";
-import { Button } from "./ui/button";
 
 const CourseHome = () => {
   const { selectedCourse, setSelectedCourse } = useCourseStore();
@@ -19,17 +19,13 @@ const CourseHome = () => {
     const fetchContents = async () => {
       if (!selectedCourse) return;
 
-      console.log("Fetching contents for course:", selectedCourse.id);
       const { data, error } = await supabase
         .from("course_contents")
         .select("*")
         .eq("course_id", selectedCourse.id)
         .order("order", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching contents:", error);
-      } else {
-        console.log("Fetched contents:", data);
+      if (!error) {
         setLessons(data || []);
       }
       setLoading(false);
@@ -41,155 +37,517 @@ const CourseHome = () => {
   if (!selectedCourse) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="course-home animate-fade-in">
       {/* Header */}
-      <div className="bg-muted/30 border-b py-12">
-        <div className="container mx-auto px-6">
-          <button
-            onClick={() => setSelectedCourse(null)}
-            className="flex items-center space-x-2 text-primary hover:underline mb-6 text-sm font-bold uppercase tracking-widest"
-          >
-            <ChevronLeft size={14} />
+      <header className="course-header">
+        <div className="container">
+          <button onClick={() => setSelectedCourse(null)} className="back-btn">
+            <ChevronLeft size={16} />
             <span>Back to Marketplace</span>
           </button>
 
-          <div className="flex items-center space-x-2 text-primary mb-4 text-xs font-bold uppercase tracking-widest">
-            <span>My Courses</span>
-            <ChevronRight size={12} />
-            <span className="text-muted-foreground">
-              {selectedCourse.title}
-            </span>
-          </div>
+          <nav className="breadcrumb">
+            <span>Library</span>
+            <ChevronRight size={14} />
+            <span className="current">{selectedCourse.title}</span>
+          </nav>
 
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-6">
-            {selectedCourse.title}
-          </h1>
+          <h1 className="course-main-title">{selectedCourse.title}</h1>
 
-          <div className="flex flex-wrap items-center gap-6 text-muted-foreground font-medium text-sm">
-            <div className="flex items-center space-x-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
+          <div className="course-meta">
+            <div className="meta-badge">
               <CheckCircle size={16} />
-              <span className="font-bold">Active Module</span>
+              <span>Verified Module</span>
             </div>
-            <span>{lessons.length} Lessons</span>
-            <span className="w-1 h-1 rounded-full bg-muted-foreground/30"></span>
-            <span>Instructed by @Internal_AI</span>
+            <span className="meta-item">{lessons.length} Lessons</span>
+            <span className="meta-dot"></span>
+            <span className="meta-item">Instructed by Top 1% Mentors</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-6 mt-12 flex flex-col lg:flex-row gap-12">
-        {/* Lesson List */}
-        <div className="flex-1 space-y-4">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold tracking-tight">
-              Course <span className="text-muted-foreground">Index</span>
-            </h2>
-            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              {lessons.length} Blocks Total
-            </div>
+      <main className="container course-main">
+        <div className="lessons-section animate-slide-up">
+          <div className="section-header">
+            <h2 className="section-title">Module Curriculum</h2>
+            <div className="lesson-count">{lessons.length} Sections</div>
           </div>
 
           {loading ? (
-            <div className="space-y-4">
+            <div className="skeleton-list">
               {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-muted animate-pulse rounded-xl"
-                />
+                <div key={i} className="skeleton-item pulse-bg" />
               ))}
             </div>
           ) : lessons.length > 0 ? (
-            lessons.map((lesson, idx) => (
-              <div
-                key={lesson.id}
-                onClick={() => {
-                  if (lesson.type === "video" || lesson.type === "pdf") {
-                    window.open(lesson.url, "_blank");
-                  }
-                }}
-                className="bg-card border rounded-xl p-5 flex items-center justify-between hover:border-primary/50 transition-all cursor-pointer group shadow-sm"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="text-muted-foreground/40 font-mono text-lg w-6 font-bold">
-                    {(idx + 1).toString().padStart(2, "0")}
-                  </div>
-                  <div className="p-3 bg-muted rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    {lesson.type === "video" ? (
-                      <PlayCircle size={22} />
-                    ) : (
-                      <FileText size={22} />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-bold group-hover:text-primary transition-colors text-lg">
-                      {lesson.title}
-                    </h3>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-muted rounded text-muted-foreground">
-                        {lesson.type}
-                      </span>
-                      {lesson.type === "video" && (
-                        <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
-                          • High Definition
-                        </span>
+            <div className="lesson-list">
+              {lessons.map((lesson, idx) => (
+                <div
+                  key={lesson.id}
+                  onClick={() => {
+                    if (lesson.type === "video" || lesson.type === "pdf") {
+                      window.open(lesson.url, "_blank");
+                    }
+                  }}
+                  className="lesson-card"
+                >
+                  <div className="lesson-info">
+                    <div className="lesson-index">
+                      {(idx + 1).toString().padStart(2, "0")}
+                    </div>
+                    <div className="lesson-icon-wrapper">
+                      {lesson.type === "video" ? (
+                        <PlayCircle size={24} />
+                      ) : (
+                        <FileText size={24} />
                       )}
                     </div>
+                    <div className="lesson-details">
+                      <h3 className="lesson-name">{lesson.title}</h3>
+                      <div className="lesson-sub-meta">
+                        <span className="type-pill">{lesson.type}</span>
+                        {lesson.type === "video" && (
+                          <span className="quality-text">HD Available</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                  <button className="access-btn">View Lesson</button>
                 </div>
-                <div className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase tracking-tighter text-[10px]"
-                  >
-                    Access Data
-                  </Button>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           ) : (
-            <div className="bg-muted/20 border border-dashed rounded-2xl p-12 text-center">
-              <div className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
-                No data blocks indexed for this module.
-              </div>
+            <div className="empty-state">
+              <p>No sections identified for this module yet.</p>
             </div>
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="lg:w-96 space-y-8">
-          <div className="bg-card border rounded-2xl p-8 shadow-sm">
-            <h3 className="font-bold mb-6 text-sm uppercase tracking-widest">
-              Deployment Progress
-            </h3>
-            <div className="w-full bg-muted h-3 rounded-full mb-4 overflow-hidden">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-1000"
-                style={{ width: "0%" }}
-              ></div>
+        <aside
+          className="course-sidebar animate-slide-up"
+          style={{ animationDelay: "150ms" }}
+        >
+          <div className="sidebar-widget">
+            <h3 className="widget-title">Course Completion</h3>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: "0%" }}></div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                Knowledge Gained
-              </span>
-              <span className="text-xs font-bold text-primary">0%</span>
+            <div className="progress-stats">
+              <span className="progress-label">Progress</span>
+              <span className="progress-value">0%</span>
             </div>
           </div>
 
-          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8">
-            <h3 className="font-bold text-primary mb-3 text-sm uppercase tracking-widest">
-              Resource Manifest
-            </h3>
-            <p className="text-sm text-muted-foreground font-medium mb-6 leading-relaxed">
-              All assets for this module are hosted on the decentralized storage
-              network.
+          <div className="sidebar-widget manifest-widget">
+            <h3 className="widget-title">Documentation</h3>
+            <p className="widget-desc">
+              Download the complete documentation, architectural diagrams, and
+              source assets for offline reference.
             </p>
-            <Button className="w-full font-bold uppercase tracking-widest h-11 text-xs shadow-lg shadow-primary/20">
-              Download Source ZIP
-            </Button>
+            <button className="btn-pink w-full flex-center">
+              <Download size={18} />
+              <span>Download Resources</span>
+            </button>
           </div>
-        </div>
-      </div>
+        </aside>
+      </main>
+
+      <style>{`
+        :root {
+          --bg-color: #f8fafc; /* Light modern slate */
+          --text-main: #0f172a;
+          --text-muted: #64748b;
+          --pink-main: #ec4899;
+          --pink-light: #fdf2f8;
+          --pink-gradient: linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%);
+          --border-soft: #e2e8f0;
+          --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+          --shadow-pink: 0 10px 25px -5px rgba(236, 72, 153, 0.15);
+        }
+
+        .course-home {
+          padding-top: 75px;
+          min-height: 100vh;
+          background: var(--bg-color);
+          font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        /* --- Header --- */
+        .course-header {
+          padding: 60px 0;
+          background: #ffffff;
+          border-bottom: 1px solid var(--border-soft);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 2rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          padding: 0;
+        }
+
+        .back-btn:hover {
+          color: var(--pink-main);
+          transform: translateX(-4px);
+        }
+
+        .breadcrumb {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+
+        .breadcrumb .current {
+          color: var(--pink-main);
+        }
+
+        .course-main-title {
+          font-size: clamp(2.5rem, 4vw, 3.5rem);
+          font-weight: 800;
+          margin-bottom: 1.5rem;
+          color: var(--text-main);
+          letter-spacing: -0.04em;
+          line-height: 1.1;
+        }
+
+        .course-meta {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 1.5rem;
+        }
+
+        .meta-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--pink-light);
+          color: var(--pink-main);
+          padding: 6px 14px;
+          border-radius: 100px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          border: 1px solid rgba(236, 72, 153, 0.2);
+        }
+
+        .meta-item {
+          font-size: 0.95rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .meta-dot {
+          width: 4px;
+          height: 4px;
+          background: #cbd5e1;
+          border-radius: 50%;
+        }
+
+        /* --- Main Content Grid --- */
+        .course-main {
+          display: grid;
+          grid-template-columns: 1fr 380px;
+          gap: 3rem;
+          margin-top: 3rem;
+          padding-bottom: 4rem;
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          margin-bottom: 2rem;
+        }
+
+        .section-title {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--text-main);
+        }
+
+        .lesson-count {
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: var(--pink-main);
+          background: var(--pink-light);
+          padding: 4px 10px;
+          border-radius: 8px;
+        }
+
+        .lesson-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        /* --- Lesson Cards --- */
+        .lesson-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.25rem 1.5rem;
+          background: #ffffff;
+          border: 1px solid var(--border-soft);
+          border-radius: 16px;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .lesson-card:hover {
+          transform: translateY(-3px);
+          box-shadow: var(--shadow-md);
+          border-color: #fbcfe8;
+        }
+
+        .lesson-info {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+
+        .lesson-index {
+          font-family: 'Space Mono', monospace;
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: #cbd5e1;
+          width: 28px;
+        }
+
+        .lesson-icon-wrapper {
+          width: 48px;
+          height: 48px;
+          background: #f1f5f9;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #94a3b8;
+          transition: all 0.3s ease;
+        }
+
+        .lesson-card:hover .lesson-icon-wrapper {
+          background: var(--pink-light);
+          color: var(--pink-main);
+        }
+
+        .lesson-name {
+          font-size: 1.1rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
+          color: var(--text-main);
+        }
+
+        .lesson-sub-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .type-pill {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          background: #f1f5f9;
+          padding: 2px 8px;
+          border-radius: 6px;
+          color: var(--text-muted);
+        }
+
+        .quality-text {
+          font-size: 0.7rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: #94a3b8;
+        }
+
+        .access-btn {
+          background: transparent;
+          border: none;
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--pink-main);
+          opacity: 0;
+          transform: translateX(10px);
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }
+
+        .lesson-card:hover .access-btn {
+          opacity: 1;
+          transform: translateX(0);
+        }
+
+        /* --- Sidebar --- */
+        .sidebar-widget {
+          background: #ffffff;
+          padding: 2rem;
+          margin-bottom: 1.5rem;
+          border-radius: 20px;
+          border: 1px solid var(--border-soft);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .widget-title {
+          font-size: 0.9rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 1.5rem;
+          color: var(--text-main);
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 8px;
+          background: #f1f5f9;
+          border-radius: 100px;
+          overflow: hidden;
+          margin-bottom: 1rem;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: var(--pink-gradient);
+          border-radius: 100px;
+          transition: width 1s ease-in-out;
+        }
+
+        .progress-stats {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text-muted);
+        }
+
+        .progress-value {
+          color: var(--pink-main);
+        }
+
+        .manifest-widget {
+          background: var(--pink-light);
+          border-color: #fbcfe8;
+        }
+
+        .widget-desc {
+          font-size: 0.9rem;
+          color: #475569;
+          margin-bottom: 1.5rem;
+          line-height: 1.6;
+        }
+
+        /* --- Global Buttons & States --- */
+        .btn-pink {
+          background: var(--pink-gradient);
+          color: white;
+          border: none;
+          padding: 14px 24px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: var(--shadow-pink);
+        }
+        .btn-pink:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 15px 25px -10px var(--pink-main);
+        }
+
+        .w-full { width: 100%; }
+        .flex-center { display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        .empty-state {
+          padding: 4rem;
+          text-align: center;
+          background: #ffffff;
+          border: 2px dashed var(--border-soft);
+          border-radius: 16px;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+
+        .skeleton-item {
+          height: 85px;
+          background: #ffffff;
+          border: 1px solid var(--border-soft);
+          border-radius: 16px;
+          margin-bottom: 1rem;
+        }
+
+        /* --- Animations --- */
+        @keyframes fade-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        .animate-fade-in {
+          opacity: 0;
+          animation: fade-in 0.6s ease forwards;
+        }
+
+        @keyframes slide-up {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+          opacity: 0;
+          animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes pulse-bg {
+          0% { background-color: #ffffff; }
+          50% { background-color: #f8fafc; }
+          100% { background-color: #ffffff; }
+        }
+        .pulse-bg {
+          animation: pulse-bg 2s infinite;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 1024px) {
+          .course-main {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+          }
+          .course-sidebar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+          }
+          .sidebar-widget {
+            margin-bottom: 0;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .course-header { padding: 40px 0; }
+          .course-main-title { font-size: 2rem; }
+          .course-sidebar { grid-template-columns: 1fr; }
+          .lesson-card { padding: 1rem; flex-direction: column; align-items: flex-start; gap: 1rem; }
+          .access-btn { transform: translateX(0); opacity: 1; width: 100%; text-align: left; padding-left: 3.5rem; }
+        }
+      `}</style>
     </div>
   );
 };

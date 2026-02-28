@@ -2,85 +2,83 @@ import { ChevronLeft, Maximize, Settings, Volume2 } from "lucide-react";
 
 const VideoPlayer = () => {
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="player-page">
       {/* Top Bar */}
-      <div className="p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
-        <button className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors">
+      <div className="player-top-bar glass">
+        <button className="player-back-btn">
           <ChevronLeft size={24} />
-          <span className="font-bold">Back to Course Home</span>
+          <span>Library</span>
         </button>
-        <div className="text-center">
-          <h1 className="font-bold text-lg">4. Core Concepts Deep Dive</h1>
-          <p className="text-xs text-gray-500 uppercase tracking-widest">
-            Introduction to Computer Science
-          </p>
+        <div className="player-info">
+          <h1 className="player-title">4. Core Concepts Deep Dive</h1>
+          <p className="player-subtitle">Introduction to Computer Science</p>
         </div>
-        <div className="w-24"></div> {/* Spacer */}
+        <div className="player-spacer"></div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center relative group">
-        <div className="w-full max-w-5xl aspect-video bg-gray-900 rounded-2xl overflow-hidden shadow-2xl relative">
-          {/* Mock Video UI */}
-          <img
-            src="https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=1200&q=80"
-            alt="Video Content"
-            className="w-full h-full object-cover opacity-50"
-          />
+      <main className="player-main">
+        <div className="video-container group">
+          <div className="video-screen card">
+            {/* Mock Video UI */}
+            <img
+              src="https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=1200&q=80"
+              alt="Video Content"
+              className="video-poster"
+            />
 
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-              <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2"></div>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="w-full bg-gray-600 h-1.5 rounded-full mb-4 cursor-pointer relative">
-              <div className="absolute left-0 top-0 bottom-0 bg-primary-500 w-1/3 rounded-full">
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg"></div>
+            <div className="play-overlay">
+              <div className="play-btn-large">
+                <div className="play-icon-shape"></div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent"></div>
-                <div className="flex items-center space-x-2">
-                  <Volume2 size={20} />
-                  <div className="w-20 bg-gray-600 h-1 rounded-full overflow-hidden">
-                    <div className="bg-white w-3/4 h-full"></div>
+            {/* Controls */}
+            <div className="player-controls">
+              <div className="progress-bar-container">
+                <div className="progress-fill-bg">
+                  <div
+                    className="progress-fill-active"
+                    style={{ width: "33%" }}
+                  >
+                    <div className="progress-handle"></div>
                   </div>
                 </div>
-                <span className="text-sm font-mono text-gray-300">
-                  04:20 / 12:45
-                </span>
               </div>
 
-              <div className="flex items-center space-x-6">
-                <Settings
-                  size={20}
-                  className="text-gray-400 hover:text-white cursor-pointer"
-                />
-                <Maximize
-                  size={20}
-                  className="text-gray-400 hover:text-white cursor-pointer"
-                />
+              <div className="controls-row">
+                <div className="controls-left">
+                  <div className="play-icon-small"></div>
+                  <div className="volume-control">
+                    <Volume2 size={20} />
+                    <div className="volume-slider">
+                      <div
+                        className="volume-fill"
+                        style={{ width: "75%" }}
+                      ></div>
+                    </div>
+                  </div>
+                  <span className="time-display">04:20 / 12:45</span>
+                </div>
+
+                <div className="controls-right">
+                  <Settings size={20} className="control-icon" />
+                  <Maximize size={20} className="control-icon" />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Footer / Info */}
-      <div className="p-8 bg-gray-900 border-t border-gray-800">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">About this lesson</h2>
-            <button className="bg-gray-800 hover:bg-gray-700 px-6 py-2 rounded-lg font-bold transition-colors">
-              Next Lesson
-            </button>
+      <footer className="player-footer">
+        <div className="footer-content container">
+          <div className="info-header">
+            <h2 className="info-title">About this lesson</h2>
+            <button className="btn btn-outline next-btn">Next Lesson</button>
           </div>
-          <p className="text-gray-400 leading-relaxed">
+          <p className="lesson-desc">
             In this deep dive, we explore the fundamental building blocks of
             modern computing. We'll cover binary logic, memory management, and
             how high-level code eventually gets executed by the CPU.
@@ -88,7 +86,279 @@ const VideoPlayer = () => {
             serious software engineer.
           </p>
         </div>
-      </div>
+      </footer>
+
+      <style>{`
+        .player-page {
+          min-height: 100vh;
+          background: #fff;
+          color: var(--text-primary);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .player-top-bar {
+          padding: 1rem 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          z-index: 10;
+          background: white;
+          border-bottom: 1.5px solid var(--border-color);
+        }
+
+        .player-back-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--text-secondary);
+          transition: var(--transition);
+          font-weight: 700;
+        }
+
+        .player-back-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .player-info {
+          text-align: center;
+        }
+
+        .player-title {
+          font-size: 1.2rem;
+          font-weight: 800;
+          margin-bottom: 0.25rem;
+          color: var(--text-primary);
+        }
+
+        .player-subtitle {
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--text-secondary);
+          font-weight: 800;
+        }
+
+        .player-spacer { width: 120px; }
+
+        .player-main {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem;
+          background: #f8f8f6;
+        }
+
+        .video-container {
+          width: 100%;
+          max-width: 1100px;
+          position: relative;
+        }
+
+        .video-screen {
+          aspect-ratio: 16/9;
+          background: #000;
+          border-radius: 24px;
+          overflow: hidden;
+          position: relative;
+          padding: 0;
+          border: 1.5px solid var(--border-color);
+          box-shadow: 0 40px 80px rgba(0, 0, 0, 0.15);
+        }
+
+        .video-poster {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0.7;
+        }
+
+        .play-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .play-btn-large {
+          width: 85px;
+          height: 85px;
+          background: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: var(--transition);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .play-btn-large:hover {
+          transform: scale(1.1);
+        }
+
+        .play-icon-shape {
+          width: 0;
+          height: 0;
+          border-top: 15px solid transparent;
+          border-left: 25px solid black;
+          border-bottom: 15px solid transparent;
+          margin-left: 8px;
+        }
+
+        .player-controls {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 2.5rem;
+          background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+          opacity: 0;
+          transition: var(--transition);
+        }
+
+        .video-container:hover .player-controls {
+          opacity: 1;
+        }
+
+        .progress-bar-container {
+          margin-bottom: 1.5rem;
+          cursor: pointer;
+        }
+
+        .progress-fill-bg {
+          height: 5px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 100px;
+          position: relative;
+        }
+
+        .progress-fill-active {
+          height: 100%;
+          background: white;
+          border-radius: 100px;
+          position: relative;
+        }
+
+        .progress-handle {
+          position: absolute;
+          right: -8px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 16px;
+          height: 16px;
+          background: #fff;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .controls-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .controls-left, .controls-right {
+          display: flex;
+          align-items: center;
+          gap: 2.5rem;
+        }
+
+        .play-icon-small {
+          width: 0;
+          height: 0;
+          border-top: 10px solid transparent;
+          border-left: 16px solid white;
+          border-bottom: 10px solid transparent;
+          cursor: pointer;
+        }
+
+        .volume-control {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .volume-slider {
+          width: 80px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 100px;
+        }
+
+        .volume-fill {
+          height: 100%;
+          background: #fff;
+          border-radius: 100px;
+        }
+
+        .time-display {
+          font-family: monospace;
+          font-size: 0.9rem;
+          color: rgba(255, 255, 255, 0.8);
+          font-weight: 600;
+        }
+
+        .control-icon {
+          color: rgba(255, 255, 255, 0.8);
+          cursor: pointer;
+          transition: var(--transition);
+        }
+
+        .control-icon:hover {
+          color: #fff;
+        }
+
+        .player-footer {
+          background: white;
+          padding: 5rem 0;
+          border-top: 1.5px solid var(--border-color);
+        }
+
+        .info-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2.5rem;
+        }
+
+        .info-title {
+          font-size: 2rem;
+          font-weight: 900;
+          color: var(--text-primary);
+          letter-spacing: -0.04em;
+        }
+
+        .lesson-desc {
+          color: var(--text-secondary);
+          line-height: 1.8;
+          max-width: 850px;
+          font-size: 1.1rem;
+          font-weight: 500;
+        }
+
+        .next-btn {
+          padding: 12px 35px;
+          background: #f8f8f6;
+          border-color: var(--border-color);
+          font-weight: 800;
+        }
+        
+        .next-btn:hover {
+          background: var(--text-primary);
+          color: white;
+        }
+
+        @media (max-width: 768px) {
+          .player-spacer { display: none; }
+          .player-main { padding: 1.5rem; }
+          .controls-left, .controls-right { gap: 1.5rem; }
+          .volume-control { display: none; }
+          .info-header { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+        }
+      `}</style>
     </div>
   );
 };

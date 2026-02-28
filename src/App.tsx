@@ -1,68 +1,79 @@
-import { useEffect, useState } from "react";
-import { useAuthStore } from "./store/useAuthStore";
-import { useCourseStore } from "./store/useCourseStore";
-import { supabase } from "./lib/supabase";
+import { useState } from "react";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import CourseList from "./components/CourseList";
 import CourseHome from "./components/CourseHome";
 import AuthModal from "./components/AuthModal";
 import Chatbot from "./components/Chatbot";
+import { useEffect } from "react";
+import { supabase } from "./lib/supabase";
+import { useAuthStore } from "./store/useAuthStore";
+import { useCourseStore } from "./store/useCourseStore";
 
 function App() {
-  const { setUser, loading } = useAuthStore();
-  const { selectedCourse } = useCourseStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { selectedCourse } = useCourseStore();
+  const { setUser, setProfile } = useAuthStore();
 
   useEffect(() => {
+    const fetchProfile = async (userId: string) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (!error && data) {
+        setProfile(data);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (session) {
+        setUser(session.user);
+        fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (session) {
+        setUser(session.user);
+        fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
-  }
+  }, [setUser, setProfile]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground dark overflow-x-hidden">
-      {/* Background Aesthetic Grid */}
-      {!selectedCourse && (
-        <div className="fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-grid bg-grid-fade" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-        </div>
+    <div className="app-container">
+      <Navbar onAuthClick={() => setShowAuthModal(true)} />
+
+      {!selectedCourse ? (
+        <main>
+          <Hero />
+          <CourseList />
+        </main>
+      ) : (
+        <CourseHome />
       )}
 
-      <div className="relative z-10">
-        <Navbar onAuthClick={() => setShowAuthModal(true)} />
-        <main>
-          {selectedCourse ? (
-            <CourseHome />
-          ) : (
-            <>
-              <Hero />
-              <CourseList />
-            </>
-          )}
-        </main>
-        <Chatbot />
-      </div>
+      <Chatbot />
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
-      <div className="noise-bg" />
+
+      <style>{`
+        .app-container {
+          min-height: 100vh;
+        }
+      `}</style>
     </div>
   );
 }
