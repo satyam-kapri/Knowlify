@@ -1,4 +1,3 @@
-import React from "react";
 import { Search, Zap, Trophy, Globe, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";

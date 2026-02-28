@@ -1,4 +1,3 @@
-import React from "react";
 import { ChevronLeft, Maximize, Settings, Volume2 } from "lucide-react";
 
 const VideoPlayer = () => {

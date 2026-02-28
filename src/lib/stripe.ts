@@ -1,7 +1,7 @@
-import { loadStripe } from "@stripe/stripe-js";
-import axios from "axios";
+// import { loadStripe } from "@stripe/stripe-js";
+// import axios from "axios";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 export const createCheckoutSession = async (
   courseId: string,
